@@ -74,34 +74,6 @@ flowchart LR
     class S data;
     class M obs;
 ```
-
-### 2. Agent decision flow
-
-This diagram focuses on the internal AI request path: prompt policy, model call, tool use, confidence evaluation, and final response shaping.
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#111827', 'primaryTextColor': '#F9FAFB', 'primaryBorderColor': '#F59E0B', 'lineColor': '#94A3B8', 'secondaryColor': '#1F2937', 'tertiaryColor': '#0F172A', 'fontSize': '15px'}}}%%
-flowchart TD
-    classDef input fill:#0F172A,stroke:#60A5FA,color:#F8FAFC,stroke-width:2px;
-    classDef process fill:#111827,stroke:#34D399,color:#F8FAFC,stroke-width:2px;
-    classDef decision fill:#111827,stroke:#F59E0B,color:#F8FAFC,stroke-width:2px;
-    classDef output fill:#111827,stroke:#C084FC,color:#F8FAFC,stroke-width:2px;
-
-    A[User request] --> B[Prompt policy and memory context]
-    B --> C[Bedrock model call]
-    C --> D{Tool needed?}
-    D -- Yes --> E[Execute backend tools]
-    E --> F[Evaluate confidence]
-    F --> G[Final answer or clarification]
-    D -- No --> G
-    G --> H[Return API response and log trace]
-
-    class A input;
-    class B,C,E process;
-    class D,F decision;
-    class G,H output;
-```
-
 ## Runtime design
 
 The codebase is organized around a **custom agent backend** rather than a heavy agent framework.
