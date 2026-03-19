@@ -19,6 +19,7 @@ def _safe_logged_model_name(base_name: str, version: str) -> str:
     safe_version = version.replace(".", "_")
     return f"{base_name}-v{safe_version}"
 
+
 # ── Logging ─────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=settings.log_level,
@@ -50,7 +51,8 @@ try:
         for _candidate in _candidates:
             try:
                 _resp = _health_req.get(
-                    f"{_candidate.rstrip('/')}/health", timeout=5,
+                    f"{_candidate.rstrip('/')}/health",
+                    timeout=5,
                 )
                 _resp.raise_for_status()
                 _tracking_uri = _candidate
@@ -59,7 +61,9 @@ try:
                 break
             except Exception as _hc_err:
                 _log.warning(
-                    "MLflow server unreachable (%s): %s", _candidate, _hc_err,
+                    "MLflow server unreachable (%s): %s",
+                    _candidate,
+                    _hc_err,
                 )
 
         if not _reached:
@@ -69,14 +73,18 @@ try:
                 _using_fallback = True
                 _log.info(
                     "Falling back to direct DB tracking: %s",
-                    _tracking_uri.split("@")[-1] if "@" in _tracking_uri else _tracking_uri[:40],
+                    _tracking_uri.split("@")[-1]
+                    if "@" in _tracking_uri
+                    else _tracking_uri[:40],
                 )
             else:
                 # 4. All options exhausted — disable tracing
                 _log.warning(
                     "All MLflow servers unreachable and no MLFLOW_TRACKING_URI_FALLBACK set — tracing disabled"
                 )
-                raise ImportError("skip tracing")  # caught below, cleanly disables tracing
+                raise ImportError(
+                    "skip tracing"
+                )  # caught below, cleanly disables tracing
 
     mlflow.set_tracking_uri(_tracking_uri)
 
@@ -84,6 +92,7 @@ try:
     # experiments / runs store artifacts in S3 (not local filesystem).
     if _using_fallback and settings.mlflow_default_artifact_root:
         import os
+
         os.environ.setdefault(
             "MLFLOW_DEFAULT_ARTIFACT_ROOT",
             settings.mlflow_default_artifact_root,
@@ -127,7 +136,9 @@ try:
                 "prompt_active_sections": ",".join(_policy_meta["active_sections"]),
                 "prompt_section_count": str(len(_policy_meta["active_sections"])),
                 "prompt_char_count": str(_policy_meta["prompt_char_count"]),
-                "prompt_sha256": hashlib.sha256(_system_prompt.encode("utf-8")).hexdigest(),
+                "prompt_sha256": hashlib.sha256(
+                    _system_prompt.encode("utf-8")
+                ).hexdigest(),
                 "llm_provider": "bedrock",
                 "llm_model": settings.bedrock_model_id,
                 "temperature": str(settings.bedrock_temperature),
@@ -163,6 +174,7 @@ except ImportError:
     # MLflow SDK not installed (e.g. Lambda) — try the lightweight REST client
     try:
         from app.services.mlflow_lite import init_lite_client
+
         _lite = init_lite_client(
             tracking_uri=settings.mlflow_tracking_uri,
             experiment_name=settings.mlflow_experiment_name,
@@ -179,7 +191,8 @@ except ImportError:
             )
     except Exception as _lite_exc:
         logging.getLogger(__name__).info(
-            "MLflow not installed, Lite fallback failed: %s — tracing disabled", _lite_exc
+            "MLflow not installed, Lite fallback failed: %s — tracing disabled",
+            _lite_exc,
         )
 except Exception as exc:
     logging.getLogger(__name__).warning("MLflow init failed (non-fatal): %s", exc)

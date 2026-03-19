@@ -1,4 +1,4 @@
-﻿"""
+"""
 AI router - exposes Bedrock-backed endpoints.
 Supports Claude tool calling for structured Supabase queries.
 
@@ -12,6 +12,7 @@ MLflow Tracing:
   - Child spans: LLM inference, tool execution, confidence gate
   - Autolog (from main.py) also traces raw boto3 calls
 """
+
 import json
 import logging
 import uuid
@@ -147,11 +148,15 @@ def _safe_logged_model_name(base_name: str, version: str) -> str:
 
 LINKED_PROMPTS_TAG = "mlflow.linkedPrompts"
 
+
 def _is_database_related(prompt: str) -> bool:
     prompt_lower = prompt.lower()
     return any(keyword in prompt_lower for keyword in DB_RELATED_KEYWORDS)
 
-def _extract_jobs_from_results(tool_name: str, result_data: Any) -> list[dict[str, Any]]:
+
+def _extract_jobs_from_results(
+    tool_name: str, result_data: Any
+) -> list[dict[str, Any]]:
     """
     Extract slim job metadata from tool execution results.
     Works for both search_jobs (returns job rows) and semantic_search_jobs
@@ -165,17 +170,22 @@ def _extract_jobs_from_results(tool_name: str, result_data: Any) -> list[dict[st
         job_id = row.get("job_id")
         if not job_id:
             continue
-        jobs.append({
-            "job_id": job_id,
-            "actual_role": row.get("actual_role", ""),
-            "company_name": row.get("company_name", ""),
-            "url": row.get("url", ""),
-            "posted_date": row.get("posted_date", ""),
-            "country": row.get("country", ""),
-        })
+        jobs.append(
+            {
+                "job_id": job_id,
+                "actual_role": row.get("actual_role", ""),
+                "company_name": row.get("company_name", ""),
+                "url": row.get("url", ""),
+                "posted_date": row.get("posted_date", ""),
+                "country": row.get("country", ""),
+            }
+        )
     return jobs
 
-def _build_ai_job_results(tool_name: str | None, result_data: Any) -> list[dict[str, Any]] | None:
+
+def _build_ai_job_results(
+    tool_name: str | None, result_data: Any
+) -> list[dict[str, Any]] | None:
     """
     Build a frontend-friendly job list payload for AI answers.
     Only listing-style tools should expose structured job cards.
@@ -190,52 +200,105 @@ def _build_ai_job_results(tool_name: str | None, result_data: Any) -> list[dict[
         job_id = row.get("job_id")
         if not job_id:
             continue
-        jobs.append({
-            "job_id": job_id,
-            "actual_role": row.get("actual_role", ""),
-            "company_name": row.get("company_name", ""),
-            "country": row.get("country", ""),
-            "location": row.get("location", ""),
-            "url": row.get("url", ""),
-            "posted_date": row.get("posted_date", ""),
-            "job_level_std": row.get("job_level_std", ""),
-            "job_function_std": row.get("job_function_std", ""),
-            "job_type_filled": row.get("job_type_filled", ""),
-            "platform": row.get("platform", ""),
-            "is_remote": row.get("is_remote"),
-            "is_research": row.get("is_research"),
-            "skills": row.get("skills", ""),
-            "tools": row.get("tools", ""),
-        })
+        jobs.append(
+            {
+                "job_id": job_id,
+                "actual_role": row.get("actual_role", ""),
+                "company_name": row.get("company_name", ""),
+                "country": row.get("country", ""),
+                "location": row.get("location", ""),
+                "url": row.get("url", ""),
+                "posted_date": row.get("posted_date", ""),
+                "job_level_std": row.get("job_level_std", ""),
+                "job_function_std": row.get("job_function_std", ""),
+                "job_type_filled": row.get("job_type_filled", ""),
+                "platform": row.get("platform", ""),
+                "is_remote": row.get("is_remote"),
+                "is_research": row.get("is_research"),
+                "skills": row.get("skills", ""),
+                "tools": row.get("tools", ""),
+            }
+        )
     return jobs or None
+
 
 def _is_job_detail_followup(prompt: str) -> bool:
     """Detect if user is asking about a previously mentioned job."""
     prompt_lower = prompt.lower()
     triggers = [
-        "its job id", "its id", "its link", "its url", "the link",
-        "job id", "give me the link", "more about", "details on",
-        "tell me about the", "which one", "the first one", "the second",
-        "the third", "the last one", "more info", "more detail",
-        "show me the", "open the",
+        "its job id",
+        "its id",
+        "its link",
+        "its url",
+        "the link",
+        "job id",
+        "give me the link",
+        "more about",
+        "details on",
+        "tell me about the",
+        "which one",
+        "the first one",
+        "the second",
+        "the third",
+        "the last one",
+        "more info",
+        "more detail",
+        "show me the",
+        "open the",
     ]
     return any(t in prompt_lower for t in triggers)
 
+
 # Short affirmative/vague follow-ups that imply "continue with previous context"
 _AFFIRMATIVE_PATTERNS = [
-    "yes", "yeah", "yep", "yup", "sure", "please", "ok", "okay",
-    "go ahead", "do it", "show me", "tell me", "absolutely",
-    "of course", "why not", "right", "correct", "exactly",
-    "more", "details", "elaborate", "explain", "break it down",
-    "breakdown", "continue", "go on", "please do",
+    "yes",
+    "yeah",
+    "yep",
+    "yup",
+    "sure",
+    "please",
+    "ok",
+    "okay",
+    "go ahead",
+    "do it",
+    "show me",
+    "tell me",
+    "absolutely",
+    "of course",
+    "why not",
+    "right",
+    "correct",
+    "exactly",
+    "more",
+    "details",
+    "elaborate",
+    "explain",
+    "break it down",
+    "breakdown",
+    "continue",
+    "go on",
+    "please do",
 ]
 
 # Negative patterns — user declining a follow-up offer
 _NEGATIVE_PATTERNS = [
-    "no", "nah", "nope", "no thanks", "no thank you",
-    "not now", "not really", "never mind", "nevermind",
-    "skip", "pass", "i'm good", "im good", "that's all",
-    "thats all", "all good", "nothing else",
+    "no",
+    "nah",
+    "nope",
+    "no thanks",
+    "no thank you",
+    "not now",
+    "not really",
+    "never mind",
+    "nevermind",
+    "skip",
+    "pass",
+    "i'm good",
+    "im good",
+    "that's all",
+    "thats all",
+    "all good",
+    "nothing else",
 ]
 
 _NEGATED_RESEARCH_PATTERNS = [
@@ -247,15 +310,18 @@ _NEGATED_RESEARCH_PATTERNS = [
     "without research",
 ]
 
+
 def _is_affirmative_followup(prompt: str) -> bool:
     """Check if prompt is a short affirmative/continuation response."""
     prompt_lower = prompt.strip().lower().rstrip("!.,?")
     return prompt_lower in _AFFIRMATIVE_PATTERNS
 
+
 def _is_negative_followup(prompt: str) -> bool:
     """Check if prompt is a short negative/declining response."""
     prompt_lower = prompt.strip().lower().rstrip("!.,?")
     return prompt_lower in _NEGATIVE_PATTERNS
+
 
 def _infer_research_filter(prompt: str) -> bool | None:
     """
@@ -271,6 +337,7 @@ def _infer_research_filter(prompt: str) -> bool | None:
     if "research" in prompt_lower:
         return True
     return None
+
 
 def _enforce_prompt_filters(
     tool_name: str,
@@ -291,6 +358,7 @@ def _enforce_prompt_filters(
         adjusted_input["is_research"] = research_filter
 
     return adjusted_input
+
 
 def _build_followup_args(tool_name: str, tool_args: dict) -> tuple[str, dict]:
     """
@@ -359,6 +427,7 @@ def _base_trace_tags(
         tags[tag_key] = tag_value
     return tags
 
+
 @router.post(
     "/ask",
     response_model=AskResponse,
@@ -383,8 +452,12 @@ async def ask(request: Request, body: AskRequest):
         settings.mlflow_active_model_name,
         settings.app_version,
     )
-    override_experiment_name = request.headers.get("x-mlflow-experiment-name", "").strip()
-    override_active_model_name = request.headers.get("x-mlflow-active-model-name", "").strip()
+    override_experiment_name = request.headers.get(
+        "x-mlflow-experiment-name", ""
+    ).strip()
+    override_active_model_name = request.headers.get(
+        "x-mlflow-active-model-name", ""
+    ).strip()
     override_prompt_name = request.headers.get("x-mlflow-prompt-name", "").strip()
     override_prompt_version = request.headers.get("x-mlflow-prompt-version", "").strip()
     override_prompt_uri = request.headers.get("x-mlflow-prompt-uri", "").strip()
@@ -417,9 +490,8 @@ async def ask(request: Request, body: AskRequest):
     tracing_context_cm = nullcontext()
     tracing_context_entered = False
     request_headers = dict(request.headers)
-    if (
-        _set_tracing_context_from_http_request_headers is not None
-        and ("traceparent" in request_headers or "Traceparent" in request_headers)
+    if _set_tracing_context_from_http_request_headers is not None and (
+        "traceparent" in request_headers or "Traceparent" in request_headers
     ):
         try:
             tracing_context_cm = _set_tracing_context_from_http_request_headers(
@@ -451,10 +523,12 @@ async def ask(request: Request, body: AskRequest):
                 span_type=_SpanType.AGENT,
             )
             _agent_span = _agent_span_ctx.__enter__()
-            _agent_span.set_inputs({
-                "prompt": body.prompt,
-                "conversation_id": conversation_id,
-            })
+            _agent_span.set_inputs(
+                {
+                    "prompt": body.prompt,
+                    "conversation_id": conversation_id,
+                }
+            )
             _trace_id = _agent_span.trace_id
             trace_tag_updates = dict(trace_tags)
             if override_prompt_name and override_prompt_version:
@@ -539,6 +613,7 @@ async def ask(request: Request, body: AskRequest):
         error: str | None = None,
     ) -> AskResponse:
         """Helper: finalize turn record, log, and return response."""
+
         def _restore_mlflow_route_override() -> None:
             if not (_mlflow and routing_override_active):
                 return
@@ -598,7 +673,8 @@ async def ask(request: Request, body: AskRequest):
                     trace_id=_trace_id,
                     name="turn_outcome",
                     value=gate_outcome,
-                    rationale=gate_reason or f"Turn completed with outcome {gate_outcome}.",
+                    rationale=gate_reason
+                    or f"Turn completed with outcome {gate_outcome}.",
                     source=assessment_source,
                     metadata={"result_type": result_type},
                 )
@@ -674,12 +750,14 @@ async def ask(request: Request, body: AskRequest):
         # Close the AGENT span with outputs
         if _agent_span and _agent_span_ctx:
             try:
-                _agent_span.set_outputs({
-                    "answer": answer[:500],
-                    "gate_outcome": gate_outcome,
-                    "gate_confidence": gate_confidence,
-                    "tool_calls_count": len(tool_calls) if tool_calls else 0,
-                })
+                _agent_span.set_outputs(
+                    {
+                        "answer": answer[:500],
+                        "gate_outcome": gate_outcome,
+                        "gate_confidence": gate_confidence,
+                        "tool_calls_count": len(tool_calls) if tool_calls else 0,
+                    }
+                )
                 _agent_span_ctx.__exit__(None, None, None)
             except Exception:
                 pass
@@ -700,7 +778,7 @@ async def ask(request: Request, body: AskRequest):
             trace_id=_trace_id,
         )
 
-# ------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # ── Dialogue state: handle affirmative/negative follow-ups ──────────
     pending = get_pending_followup(conversation_id)
 
@@ -719,10 +797,15 @@ async def ask(request: Request, body: AskRequest):
         followup_args = pending["tool_args"]
 
         # Build expanded tool call from the pending context
-        exec_tool_name, exec_tool_args = _build_followup_args(followup_tool, followup_args)
+        exec_tool_name, exec_tool_args = _build_followup_args(
+            followup_tool, followup_args
+        )
         logger.info(
             "Pending follow-up confirmed: %s(%s) → %s(%s)",
-            followup_tool, followup_args, exec_tool_name, exec_tool_args,
+            followup_tool,
+            followup_args,
+            exec_tool_name,
+            exec_tool_args,
         )
 
         executor = TOOL_EXECUTORS.get(exec_tool_name)
@@ -775,7 +858,9 @@ async def ask(request: Request, body: AskRequest):
                 "error": tool_error or "",
                 "gate_outcome": gate.outcome.value,
                 "gate_confidence": gate.confidence,
-                "result_count": len(result_data) if isinstance(result_data, list) else 0,
+                "result_count": len(result_data)
+                if isinstance(result_data, list)
+                else 0,
             },
         )
         track_confidence(conversation_id, gate)
@@ -802,11 +887,11 @@ async def ask(request: Request, body: AskRequest):
             },
         ]
         with timer.track("llm"):
-                raw = invoke_claude(
-                    messages=messages,
-                    system=effective_system_prompt,
-                    tools=[],
-                )
+            raw = invoke_claude(
+                messages=messages,
+                system=effective_system_prompt,
+                tools=[],
+            )
         usage = get_usage(raw)
         _lite_append_event(
             "llm",
@@ -825,11 +910,14 @@ async def ask(request: Request, body: AskRequest):
             answer = f"{answer}\n\n{gate.suggestion}"
 
         # Set pending follow-up for the new result too
-        set_pending_followup(conversation_id, {
-            "type": "expand_previous_query",
-            "tool_name": exec_tool_name,
-            "tool_args": exec_tool_args,
-        })
+        set_pending_followup(
+            conversation_id,
+            {
+                "type": "expand_previous_query",
+                "tool_name": exec_tool_name,
+                "tool_args": exec_tool_args,
+            },
+        )
 
         return _finalize_turn(
             answer=answer,
@@ -888,7 +976,7 @@ async def ask(request: Request, body: AskRequest):
             hint = (
                 f"[Context: The previous tool used was '{last_tool_name}' "
                 f"with arguments {json.dumps(last_tool_args)}. "
-                f"The user said \"{body.prompt}\" which is an affirmative response. "
+                f'The user said "{body.prompt}" which is an affirmative response. '
                 f"They want more details or a breakdown of the previous results. "
                 f"You MUST call a tool to provide this. Re-use the same filters "
                 f"and add grouping or detail to give a richer answer.]"
@@ -911,12 +999,9 @@ async def ask(request: Request, body: AskRequest):
     # A prompt is DB-related if it matches keywords OR is a follow-up to a previous tool call.
     # BUT: if it's a job-detail follow-up with known jobs, we already have the
     # answer in memory — don't enforce tool calling.
-    db_related_prompt = (
-        not is_job_followup
-        and (
-            _is_database_related(body.prompt)
-            or (last_tool_name is not None and len(body.prompt.split()) <= 6)
-        )
+    db_related_prompt = not is_job_followup and (
+        _is_database_related(body.prompt)
+        or (last_tool_name is not None and len(body.prompt.split()) <= 6)
     )
     no_tool_retry_count = 0
     has_called_tool = False
@@ -1002,17 +1087,22 @@ async def ask(request: Request, body: AskRequest):
                 # If tools were called, set pending follow-up for confirmation tracking
                 if has_called_tool and collected_tool_calls:
                     last_tc = collected_tool_calls[-1]
-                    set_pending_followup(conversation_id, {
-                        "type": "expand_previous_query",
-                        "tool_name": last_tc["name"],
-                        "tool_args": last_tc["input"],
-                    })
+                    set_pending_followup(
+                        conversation_id,
+                        {
+                            "type": "expand_previous_query",
+                            "tool_name": last_tc["name"],
+                            "tool_args": last_tc["input"],
+                        },
+                    )
 
                 return _finalize_turn(
                     answer=answer,
                     usage=raw_usage,
                     tool_calls=collected_tool_calls or None,
-                    job_results=_build_ai_job_results(last_result_tool_name, last_result_data),
+                    job_results=_build_ai_job_results(
+                        last_result_tool_name, last_result_data
+                    ),
                     gate_outcome=gate_outcome,
                     gate_confidence=gate_confidence,
                     gate_reason=gate_reason,
@@ -1033,7 +1123,9 @@ async def ask(request: Request, body: AskRequest):
                 tool_name = tc["name"]
                 raw_tool_input = tc["input"]
                 tool_id = tc["id"]
-                tool_input = _enforce_prompt_filters(tool_name, raw_tool_input, body.prompt)
+                tool_input = _enforce_prompt_filters(
+                    tool_name, raw_tool_input, body.prompt
+                )
 
                 if tool_input != raw_tool_input:
                     logger.info(
@@ -1044,16 +1136,16 @@ async def ask(request: Request, body: AskRequest):
                     )
 
                 collected_tool_calls.append({"name": tool_name, "input": tool_input})
-                turn_record.tools_called.append({"name": tool_name, "input": tool_input})
+                turn_record.tools_called.append(
+                    {"name": tool_name, "input": tool_input}
+                )
 
                 executor = TOOL_EXECUTORS.get(tool_name)
                 tool_error = None
                 result_data = None
 
                 if executor is None:
-                    result_content = json.dumps(
-                        {"error": f"Unknown tool: {tool_name}"}
-                    )
+                    result_content = json.dumps({"error": f"Unknown tool: {tool_name}"})
                     tool_error = f"Unknown tool: {tool_name}"
                 else:
                     with timer.track("tool"):
@@ -1095,7 +1187,9 @@ async def ask(request: Request, body: AskRequest):
                         "error": tool_error or "",
                         "gate_outcome": gate.outcome.value,
                         "gate_confidence": gate.confidence,
-                        "result_count": len(result_data) if isinstance(result_data, list) else 0,
+                        "result_count": len(result_data)
+                        if isinstance(result_data, list)
+                        else 0,
                     },
                 )
 
@@ -1104,22 +1198,27 @@ async def ask(request: Request, body: AskRequest):
                     try:
                         span = _mlflow.get_current_active_span()
                         if span:
-                            result_count = len(result_data) if isinstance(result_data, list) else 0
-                            span.set_attributes({
-                                f"tool.{tool_name}.result_count": result_count,
-                                f"tool.{tool_name}.latency_ms": timer.get("tool"),
-                                f"tool.{tool_name}.error": tool_error or "",
-                                f"gate.{tool_name}.outcome": gate.outcome.value,
-                                f"gate.{tool_name}.confidence": gate.confidence,
-                                f"gate.{tool_name}.reason": gate.reason[:200],
-                            })
+                            result_count = (
+                                len(result_data) if isinstance(result_data, list) else 0
+                            )
+                            span.set_attributes(
+                                {
+                                    f"tool.{tool_name}.result_count": result_count,
+                                    f"tool.{tool_name}.latency_ms": timer.get("tool"),
+                                    f"tool.{tool_name}.error": tool_error or "",
+                                    f"gate.{tool_name}.outcome": gate.outcome.value,
+                                    f"gate.{tool_name}.confidence": gate.confidence,
+                                    f"gate.{tool_name}.reason": gate.reason[:200],
+                                }
+                            )
                     except Exception:
                         pass
 
                 # HANDOFF: stop processing, return escalation message
                 if gate.outcome == GateOutcome.HANDOFF:
                     return _finalize_turn(
-                        answer=gate.suggestion or "I'm unable to process this request reliably. Please try rephrasing.",
+                        answer=gate.suggestion
+                        or "I'm unable to process this request reliably. Please try rephrasing.",
                         usage=raw_usage,
                         tool_calls=collected_tool_calls,
                         gate_outcome="HANDOFF",
@@ -1137,7 +1236,9 @@ async def ask(request: Request, body: AskRequest):
                     # Store mentioned jobs for follow-up context
                     if tool_name in ("search_jobs", "semantic_search_jobs"):
                         try:
-                            mentioned = _extract_jobs_from_results(tool_name, result_data)
+                            mentioned = _extract_jobs_from_results(
+                                tool_name, result_data
+                            )
                             if mentioned:
                                 set_mentioned_jobs(conversation_id, mentioned)
                         except Exception:
@@ -1161,14 +1262,18 @@ async def ask(request: Request, body: AskRequest):
         # Set pending follow-up if tools were called
         if has_called_tool and collected_tool_calls:
             last_tc = collected_tool_calls[-1]
-            set_pending_followup(conversation_id, {
-                "type": "expand_previous_query",
-                "tool_name": last_tc["name"],
-                "tool_args": last_tc["input"],
-            })
+            set_pending_followup(
+                conversation_id,
+                {
+                    "type": "expand_previous_query",
+                    "tool_name": last_tc["name"],
+                    "tool_args": last_tc["input"],
+                },
+            )
 
         return _finalize_turn(
-            answer=answer or "I was unable to complete the request within the allowed steps.",
+            answer=answer
+            or "I was unable to complete the request within the allowed steps.",
             usage=raw_usage,
             tool_calls=collected_tool_calls or None,
             job_results=_build_ai_job_results(last_result_tool_name, last_result_data),
@@ -1192,6 +1297,7 @@ async def ask(request: Request, body: AskRequest):
         )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+
 # ── Metrics Endpoint ───────────────────────────────────────────────────────
 @router.get(
     "/metrics",
@@ -1207,6 +1313,7 @@ async def metrics():
     """
     return get_aggregate_metrics()
 
+
 # ── MLflow Spool Flush Endpoint ─────────────────────────────────────────────
 @router.post(
     "/mlflow/flush-spool",
@@ -1216,7 +1323,9 @@ async def metrics():
 )
 async def flush_mlflow_spool(
     body: MlflowFlushRequest,
-    x_mlflow_spool_token: str | None = Header(default=None, alias="x-mlflow-spool-token"),
+    x_mlflow_spool_token: str | None = Header(
+        default=None, alias="x-mlflow-spool-token"
+    ),
 ):
     settings = get_settings()
     required = settings.mlflow_spool_flush_token.strip()
@@ -1249,7 +1358,10 @@ async def flush_mlflow_spool(
         raise
     except Exception as exc:
         logger.exception("MLflow spool flush failed")
-        raise HTTPException(status_code=500, detail=f"Spool flush failed: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"Spool flush failed: {exc}"
+        ) from exc
+
 
 # ── Feedback Endpoint ──────────────────────────────────────────────────────
 @router.post(
@@ -1311,7 +1423,9 @@ async def feedback(body: FeedbackRequest):
                 body.conversation_id,
                 body.turn_id,
             )
-            raise HTTPException(status_code=500, detail=f"Feedback recording failed: {exc}") from exc
+            raise HTTPException(
+                status_code=500, detail=f"Feedback recording failed: {exc}"
+            ) from exc
 
     if not _mlflow:
         try:
@@ -1345,8 +1459,12 @@ async def feedback(body: FeedbackRequest):
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception("Failed to record Lite feedback for trace %s", body.trace_id)
-            raise HTTPException(status_code=500, detail=f"Feedback recording failed: {exc}") from exc
+            logger.exception(
+                "Failed to record Lite feedback for trace %s", body.trace_id
+            )
+            raise HTTPException(
+                status_code=500, detail=f"Feedback recording failed: {exc}"
+            ) from exc
 
     try:
         from mlflow.entities import AssessmentSource, AssessmentSourceType
@@ -1356,7 +1474,12 @@ async def feedback(body: FeedbackRequest):
             trace_id=body.trace_id,
             name="user_satisfaction",
             value=body.thumbs_up,
-            rationale=body.comment or ("User indicated response was helpful" if body.thumbs_up else "User indicated response was not helpful"),
+            rationale=body.comment
+            or (
+                "User indicated response was helpful"
+                if body.thumbs_up
+                else "User indicated response was not helpful"
+            ),
             source=AssessmentSource(
                 source_type=AssessmentSourceType.HUMAN,
                 source_id="ai_explorer_ui",
@@ -1386,4 +1509,6 @@ async def feedback(body: FeedbackRequest):
 
     except Exception as exc:
         logger.exception("Failed to record feedback for trace %s", body.trace_id)
-        raise HTTPException(status_code=500, detail=f"Feedback recording failed: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"Feedback recording failed: {exc}"
+        ) from exc

@@ -181,17 +181,21 @@ def invoke_claude(
     # Ensure all message content is in list-of-blocks format
     normalized_messages = []
     for msg in messages:
-        normalized_messages.append({
-            "role": msg["role"],
-            "content": _ensure_content_blocks(msg.get("content", "")),
-        })
+        normalized_messages.append(
+            {
+                "role": msg["role"],
+                "content": _ensure_content_blocks(msg.get("content", "")),
+            }
+        )
 
     call_kwargs: dict[str, Any] = {
         "modelId": settings.bedrock_model_id,
         "messages": normalized_messages,
         "inferenceConfig": {
             "maxTokens": max_tokens or settings.bedrock_max_tokens,
-            "temperature": temperature if temperature is not None else settings.bedrock_temperature,
+            "temperature": temperature
+            if temperature is not None
+            else settings.bedrock_temperature,
         },
     }
 
@@ -218,10 +222,12 @@ def invoke_claude(
             try:
                 span = _mlflow.get_current_active_span()
                 if span:
-                    span.set_attributes({
-                        "bedrock.error": str(exc),
-                        "bedrock.model_id": settings.bedrock_model_id,
-                    })
+                    span.set_attributes(
+                        {
+                            "bedrock.error": str(exc),
+                            "bedrock.model_id": settings.bedrock_model_id,
+                        }
+                    )
             except Exception:
                 pass
         raise
@@ -237,14 +243,17 @@ def invoke_claude(
                 attributes: dict[str, Any] = {
                     "bedrock.model_id": settings.bedrock_model_id,
                     "bedrock.max_tokens": call_kwargs["inferenceConfig"]["maxTokens"],
-                    "bedrock.temperature": call_kwargs["inferenceConfig"]["temperature"],
+                    "bedrock.temperature": call_kwargs["inferenceConfig"][
+                        "temperature"
+                    ],
                     "bedrock.tool_count": tool_count,
                     "bedrock.stop_reason": response.get("stopReason", ""),
                     "bedrock.input_tokens": usage.get("inputTokens", 0),
                     "bedrock.output_tokens": usage.get("outputTokens", 0),
                     "bedrock.total_tokens": usage.get("totalTokens", 0),
                     "bedrock.latency_ms": elapsed_ms,
-                    "bedrock.stopped_for_tool_use": response.get("stopReason") == "tool_use",
+                    "bedrock.stopped_for_tool_use": response.get("stopReason")
+                    == "tool_use",
                     "mlflow.chat.tokenUsage": {
                         "input_tokens": usage.get("inputTokens", 0),
                         "output_tokens": usage.get("outputTokens", 0),
@@ -269,16 +278,16 @@ def invoke_claude(
 
 def get_assistant_message(response: dict[str, Any]) -> dict[str, Any]:
     """Extract the assistant message from a Converse response."""
-    return response.get("output", {}).get("message", {"role": "assistant", "content": []})
+    return response.get("output", {}).get(
+        "message", {"role": "assistant", "content": []}
+    )
 
 
 def extract_text(response: dict[str, Any]) -> str:
     """Pull the assistant's text out of a Converse API response."""
     message = get_assistant_message(response)
     content_blocks = message.get("content", [])
-    return "".join(
-        block["text"] for block in content_blocks if "text" in block
-    )
+    return "".join(block["text"] for block in content_blocks if "text" in block)
 
 
 def extract_tool_calls(response: dict[str, Any]) -> list[dict[str, Any]]:
@@ -292,11 +301,13 @@ def extract_tool_calls(response: dict[str, Any]) -> list[dict[str, Any]]:
     for block in content_blocks:
         if "toolUse" in block:
             tu = block["toolUse"]
-            result.append({
-                "id": tu.get("toolUseId", ""),
-                "name": tu.get("name", ""),
-                "input": tu.get("input", {}),
-            })
+            result.append(
+                {
+                    "id": tu.get("toolUseId", ""),
+                    "name": tu.get("name", ""),
+                    "input": tu.get("input", {}),
+                }
+            )
     return result
 
 

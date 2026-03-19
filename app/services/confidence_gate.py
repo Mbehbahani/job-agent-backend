@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class GateOutcome(str, Enum):
     """Possible outcomes of the confidence gate evaluation."""
+
     ANSWER = "ANSWER"
     ASK_CLARIFICATION = "ASK_CLARIFICATION"
     DECLINE = "DECLINE"
@@ -54,6 +55,7 @@ class GateDecision:
         signals: The raw signal values used for the decision
         suggestion: Optional message to show the user (e.g. clarification question)
     """
+
     outcome: GateOutcome
     confidence: float
     reason: str
@@ -107,8 +109,14 @@ def _extract_signals(
         signals["is_empty"] = not result_data
 
     # Semantic search specific signals
-    if tool_name == "semantic_search_jobs" and isinstance(result_data, list) and result_data:
-        similarities = [r.get("similarity", 0) for r in result_data if "similarity" in r]
+    if (
+        tool_name == "semantic_search_jobs"
+        and isinstance(result_data, list)
+        and result_data
+    ):
+        similarities = [
+            r.get("similarity", 0) for r in result_data if "similarity" in r
+        ]
         if similarities:
             signals["top_similarity"] = max(similarities)
             signals["avg_similarity"] = round(sum(similarities) / len(similarities), 4)
@@ -120,10 +128,18 @@ def _extract_signals(
 
     # Filter completeness: count how many filters were provided
     filter_keys = [
-        "country", "is_remote", "is_research", "job_level_std",
-        "job_function_std", "company_industry_std", "job_type_filled",
+        "country",
+        "is_remote",
+        "is_research",
+        "job_level_std",
+        "job_function_std",
+        "company_industry_std",
+        "job_type_filled",
         "tools",
-        "platform", "posted_start", "posted_end", "role_keyword",
+        "platform",
+        "posted_start",
+        "posted_end",
+        "role_keyword",
     ]
     provided_filters = sum(1 for k in filter_keys if tool_input.get(k) is not None)
     signals["filters_applied"] = provided_filters
@@ -141,18 +157,18 @@ def _extract_signals(
 # Thresholds — tune these based on your eval dataset over time.
 
 # Semantic search confidence thresholds
-SEMANTIC_HIGH_CONFIDENCE = 0.45     # similarity above this → confident
-SEMANTIC_LOW_CONFIDENCE = 0.25      # similarity below this → ask clarification
+SEMANTIC_HIGH_CONFIDENCE = 0.45  # similarity above this → confident
+SEMANTIC_LOW_CONFIDENCE = 0.25  # similarity below this → ask clarification
 # TODO: Use SEMANTIC_MIN_MARGIN in evaluate_confidence to flag ambiguous cases
 #       when the margin between top-1 and top-2 semantic scores is too small.
-SEMANTIC_MIN_MARGIN = 0.02          # margin below this → results too similar
+SEMANTIC_MIN_MARGIN = 0.02  # margin below this → results too similar
 
 # Result count thresholds
-EMPTY_RESULT_THRESHOLD = 0          # exactly zero
-HIGH_RESULT_THRESHOLD = 80          # suspiciously many (likely too broad)
+EMPTY_RESULT_THRESHOLD = 0  # exactly zero
+HIGH_RESULT_THRESHOLD = 80  # suspiciously many (likely too broad)
 
 # Latency thresholds (ms)
-HIGH_LATENCY_MS = 10_000            # over 10s is worrying
+HIGH_LATENCY_MS = 10_000  # over 10s is worrying
 
 
 def evaluate_confidence(
@@ -179,8 +195,11 @@ def evaluate_confidence(
         GateDecision with outcome, confidence score, and explanation
     """
     signals = _extract_signals(
-        tool_name, tool_input, result_data,
-        latency_ms=latency_ms, error=error,
+        tool_name,
+        tool_input,
+        result_data,
+        latency_ms=latency_ms,
+        error=error,
     )
 
     # ── Rule 1: Tool execution failed → HANDOFF or ASK ─────────────────

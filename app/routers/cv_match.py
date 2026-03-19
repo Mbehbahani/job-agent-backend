@@ -43,19 +43,19 @@ async def match_cv_endpoint(request: Request):
         if "multipart/form-data" in content_type:
             # FormData path (PDF upload)
             form = await request.form()
-            
+
             # Extract PDF text if provided
             file = form.get("file")
             if file and hasattr(file, "read"):
                 pdf_content = await file.read()
                 pdf_text = extract_text_from_pdf(pdf_content)
                 combined_cv += pdf_text
-            
+
             # Extract cv_text if provided
             cv_text = form.get("cv_text")
             if cv_text:
                 combined_cv += "\n" + str(cv_text)
-            
+
             # Parse filters from FormData (JSON-encoded strings)
             if form.get("countries"):
                 filter_countries = json.loads(str(form.get("countries")))
@@ -69,7 +69,7 @@ async def match_cv_endpoint(request: Request):
                 filter_remote = json.loads(str(form.get("is_remote")))
             if form.get("role_keyword"):
                 filter_keyword = str(form.get("role_keyword"))
-        
+
         else:
             # JSON path
             body = await request.json()
@@ -88,7 +88,9 @@ async def match_cv_endpoint(request: Request):
 
         logger.info(
             "POST /ai/match-cv  cv_len=%d  filters: countries=%s levels=%s",
-            len(combined_cv), filter_countries, filter_levels,
+            len(combined_cv),
+            filter_countries,
+            filter_levels,
         )
 
         result = match_cv(

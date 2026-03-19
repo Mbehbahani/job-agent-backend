@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 _mlflow_available = False
 try:
     import mlflow
+
     _mlflow_available = True
 except ImportError:
     mlflow = None  # type: ignore
@@ -58,6 +59,7 @@ class TurnRecord:
     A "turn" = one user prompt → agent response cycle, which may
     include multiple tool calls in a loop.
     """
+
     # Identity
     conversation_id: str = ""
     turn_id: str = ""
@@ -91,7 +93,7 @@ class TurnRecord:
     total_tokens: int = 0
 
     # Result
-    result_type: str = ""   # "answer", "error", "clarification", "handoff"
+    result_type: str = ""  # "answer", "error", "clarification", "handoff"
     result_length: int = 0
     error: str | None = None
 
@@ -126,6 +128,7 @@ class TurnRecord:
 
 # ── Structured Logger (always active) ──────────────────────────────────────
 
+
 def log_turn_structured(record: TurnRecord) -> None:
     """
     Log turn record as structured JSON to Python logger.
@@ -153,6 +156,7 @@ def _get_experiment_name() -> str:
     """Get experiment name from settings (lazy import to avoid circular deps)."""
     try:
         from app.config import get_settings
+
         return get_settings().mlflow_experiment_name
     except Exception:
         return "joblab-ai-agent-production"  # local dev fallback; Lambda sets this via MLFLOW_EXPERIMENT_NAME env var
@@ -197,40 +201,47 @@ def log_turn_mlflow(record: TurnRecord) -> None:
 
         with mlflow.start_run(run_name=f"turn-{record.turn_id[:8]}"):
             # Metrics
-            mlflow.log_metrics({
-                "total_latency_ms": record.total_latency_ms,
-                "llm_latency_ms": record.llm_latency_ms,
-                "tool_latency_ms": record.tool_latency_ms,
-                "gate_confidence": record.gate_confidence,
-                "input_tokens": record.input_tokens,
-                "output_tokens": record.output_tokens,
-                "total_tokens": record.total_tokens,
-                "tool_rounds": record.tool_rounds,
-                "soft_enforcement_retries": record.soft_enforcement_retries,
-                "prompt_char_count": record.prompt_char_count,
-                "result_length": record.result_length,
-            })
+            mlflow.log_metrics(
+                {
+                    "total_latency_ms": record.total_latency_ms,
+                    "llm_latency_ms": record.llm_latency_ms,
+                    "tool_latency_ms": record.tool_latency_ms,
+                    "gate_confidence": record.gate_confidence,
+                    "input_tokens": record.input_tokens,
+                    "output_tokens": record.output_tokens,
+                    "total_tokens": record.total_tokens,
+                    "tool_rounds": record.tool_rounds,
+                    "soft_enforcement_retries": record.soft_enforcement_retries,
+                    "prompt_char_count": record.prompt_char_count,
+                    "result_length": record.result_length,
+                }
+            )
 
             # Params
-            mlflow.log_params({
-                "policy_version": record.policy_version,
-                "gate_outcome": record.gate_outcome,
-                "gate_reason": record.gate_reason[:250],
-                "result_type": record.result_type,
-                "tools_called": ",".join(
-                    t.get("name", "?") for t in record.tools_called
-                ) or "none",
-                "conversation_id": record.conversation_id[:36],
-                "turn_id": record.turn_id,
-                "error": (record.error or "")[:250],
-            })
+            mlflow.log_params(
+                {
+                    "policy_version": record.policy_version,
+                    "gate_outcome": record.gate_outcome,
+                    "gate_reason": record.gate_reason[:250],
+                    "result_type": record.result_type,
+                    "tools_called": ",".join(
+                        t.get("name", "?") for t in record.tools_called
+                    )
+                    or "none",
+                    "conversation_id": record.conversation_id[:36],
+                    "turn_id": record.turn_id,
+                    "error": (record.error or "")[:250],
+                }
+            )
 
             # Tags
-            mlflow.set_tags({
-                "agent": "joblab-genai",
-                "component": "ai_router",
-                **record.tags,
-            })
+            mlflow.set_tags(
+                {
+                    "agent": "joblab-genai",
+                    "component": "ai_router",
+                    **record.tags,
+                }
+            )
 
             # Log the full prompt as an artifact (for debugging)
             if record.user_prompt:
@@ -258,6 +269,7 @@ def log_turn(record: TurnRecord) -> None:
         # Fallback: use lightweight REST client (initialised in main.py)
         try:
             from app.services.mlflow_lite import get_lite_client
+
             lite = get_lite_client()
             if lite:
                 lite.log_turn_async(record.to_dict())
@@ -370,7 +382,9 @@ def get_aggregate_metrics() -> dict[str, Any]:
             _METRICS["outcome_counts"]["ANSWER"] / max(_METRICS["total_turns"], 1), 3
         ),
         "clarification_rate": round(
-            _METRICS["outcome_counts"]["ASK_CLARIFICATION"] / max(_METRICS["total_turns"], 1), 3
+            _METRICS["outcome_counts"]["ASK_CLARIFICATION"]
+            / max(_METRICS["total_turns"], 1),
+            3,
         ),
         "handoff_rate": round(
             _METRICS["outcome_counts"]["HANDOFF"] / max(_METRICS["total_turns"], 1), 3

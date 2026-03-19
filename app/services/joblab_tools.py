@@ -12,7 +12,12 @@ from typing import Any
 import requests
 
 from app.config import get_settings
-from app.schemas.tools import SAFE_COLUMNS, JobStatsInput, SearchJobsInput, SemanticSearchInput
+from app.schemas.tools import (
+    SAFE_COLUMNS,
+    JobStatsInput,
+    SearchJobsInput,
+    SemanticSearchInput,
+)
 from app.services.embeddings import embed_text
 
 logger = logging.getLogger(__name__)
@@ -90,6 +95,7 @@ def _apply_common_filters(
 
 # Tool: search_jobs
 
+
 @_tool_trace
 def execute_search_jobs(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
     """
@@ -142,11 +148,19 @@ def execute_search_jobs(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
         try:
             span = _mlflow.get_current_active_span()
             if span:
-                span.set_attributes({
-                    "tool.search_jobs.result_count": len(rows),
-                    "tool.search_jobs.filters": json.dumps({k: v for k, v in qs.items() if k not in ('select', 'order', 'limit')}),
-                    "tool.search_jobs.limit": params.limit,
-                })
+                span.set_attributes(
+                    {
+                        "tool.search_jobs.result_count": len(rows),
+                        "tool.search_jobs.filters": json.dumps(
+                            {
+                                k: v
+                                for k, v in qs.items()
+                                if k not in ("select", "order", "limit")
+                            }
+                        ),
+                        "tool.search_jobs.limit": params.limit,
+                    }
+                )
         except Exception:
             pass
 
@@ -154,6 +168,7 @@ def execute_search_jobs(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 # Tool: job_stats
+
 
 def _paginated_fetch(
     url: str,
@@ -198,7 +213,9 @@ def execute_job_stats(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
     """
     params = JobStatsInput(**raw_input)
 
-    select_column = "posted_date" if params.group_by == "posted_month" else params.group_by
+    select_column = (
+        "posted_date" if params.group_by == "posted_month" else params.group_by
+    )
     qs: dict[str, str] = {
         "select": select_column,
     }
@@ -243,7 +260,9 @@ def execute_job_stats(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
             else:
                 delta = count - previous_count
                 percent_change = (
-                    None if previous_count == 0 else round((delta / previous_count) * 100, 2)
+                    None
+                    if previous_count == 0
+                    else round((delta / previous_count) * 100, 2)
                 )
 
             result.append(
@@ -295,7 +314,9 @@ def execute_job_stats(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
             if not raw_tools:
                 counts["Unknown"] = counts.get("Unknown", 0) + 1
                 continue
-            tool_items = [item.strip() for item in str(raw_tools).split(",") if item.strip()]
+            tool_items = [
+                item.strip() for item in str(raw_tools).split(",") if item.strip()
+            ]
             if not tool_items:
                 counts["Unknown"] = counts.get("Unknown", 0) + 1
                 continue
@@ -319,12 +340,14 @@ def execute_job_stats(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
         try:
             span = _mlflow.get_current_active_span()
             if span:
-                span.set_attributes({
-                    "tool.job_stats.group_by": params.group_by,
-                    "tool.job_stats.metric": params.metric,
-                    "tool.job_stats.total_rows": len(rows),
-                    "tool.job_stats.groups_returned": len(result),
-                })
+                span.set_attributes(
+                    {
+                        "tool.job_stats.group_by": params.group_by,
+                        "tool.job_stats.metric": params.metric,
+                        "tool.job_stats.total_rows": len(rows),
+                        "tool.job_stats.groups_returned": len(result),
+                    }
+                )
         except Exception:
             pass
 
@@ -332,6 +355,7 @@ def execute_job_stats(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 # Tool: semantic_search_jobs
+
 
 @_tool_trace
 def execute_semantic_search(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
@@ -395,7 +419,9 @@ def execute_semantic_search(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
             ),
             "job_id": f"in.({','.join(unique_job_ids)})",
         }
-        meta_resp = requests.get(meta_url, headers=_headers(), params=meta_qs, timeout=15)
+        meta_resp = requests.get(
+            meta_url, headers=_headers(), params=meta_qs, timeout=15
+        )
         if meta_resp.status_code == 200:
             for meta_row in meta_resp.json():
                 job_meta[meta_row["job_id"]] = meta_row
@@ -420,25 +446,27 @@ def execute_semantic_search(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
             continue
 
         seen_job_ids.add(job_id)
-        results.append({
-            "job_id": job_id,
-            "actual_role": meta.get("actual_role", "Unknown"),
-            "company_name": meta.get("company_name", "Unknown"),
-            "country": meta.get("country", ""),
-            "location": meta.get("location", ""),
-            "url": meta.get("url", ""),
-            "posted_date": posted_date or "",
-            "job_level_std": meta.get("job_level_std", ""),
-            "job_function_std": meta.get("job_function_std", ""),
-            "job_type_filled": meta.get("job_type_filled", ""),
-            "platform": meta.get("platform", ""),
-            "is_remote": meta.get("is_remote"),
-            "is_research": meta.get("is_research"),
-            "skills": meta.get("skills", "") or "",
-            "tools": meta.get("tools", "") or "",
-            "chunk_text": row.get("chunk_text", ""),
-            "similarity": round(float(row.get("similarity", 0)), 4),
-        })
+        results.append(
+            {
+                "job_id": job_id,
+                "actual_role": meta.get("actual_role", "Unknown"),
+                "company_name": meta.get("company_name", "Unknown"),
+                "country": meta.get("country", ""),
+                "location": meta.get("location", ""),
+                "url": meta.get("url", ""),
+                "posted_date": posted_date or "",
+                "job_level_std": meta.get("job_level_std", ""),
+                "job_function_std": meta.get("job_function_std", ""),
+                "job_type_filled": meta.get("job_type_filled", ""),
+                "platform": meta.get("platform", ""),
+                "is_remote": meta.get("is_remote"),
+                "is_research": meta.get("is_research"),
+                "skills": meta.get("skills", "") or "",
+                "tools": meta.get("tools", "") or "",
+                "chunk_text": row.get("chunk_text", ""),
+                "similarity": round(float(row.get("similarity", 0)), 4),
+            }
+        )
 
         if len(results) >= params.top_k:
             break
@@ -459,15 +487,19 @@ def execute_semantic_search(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
             span = _mlflow.get_current_active_span()
             if span:
                 top_similarity = results[0]["similarity"] if results else 0.0
-                span.set_attributes({
-                    "tool.semantic_search.query": params.query_text[:200],
-                    "tool.semantic_search.top_k": params.top_k,
-                    "tool.semantic_search.result_count": len(results),
-                    "tool.semantic_search.top_similarity": top_similarity,
-                    "tool.semantic_search.embed_latency_s": embed_elapsed,
-                    "tool.semantic_search.total_latency_s": total_elapsed,
-                    "tool.semantic_search.expired_filtered": len(seen_job_ids) - len(results) + (len(rows) - len(seen_job_ids)),
-                })
+                span.set_attributes(
+                    {
+                        "tool.semantic_search.query": params.query_text[:200],
+                        "tool.semantic_search.top_k": params.top_k,
+                        "tool.semantic_search.result_count": len(results),
+                        "tool.semantic_search.top_similarity": top_similarity,
+                        "tool.semantic_search.embed_latency_s": embed_elapsed,
+                        "tool.semantic_search.total_latency_s": total_elapsed,
+                        "tool.semantic_search.expired_filtered": len(seen_job_ids)
+                        - len(results)
+                        + (len(rows) - len(seen_job_ids)),
+                    }
+                )
         except Exception:
             pass
 
@@ -502,8 +534,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                             "type": "string",
                             "description": "Country name filter (e.g. Germany, Sweden, USA). Matched with case-insensitive partial match.",
                         },
-                        "is_remote": {"type": "boolean", "description": "Filter for remote jobs only (true) or non-remote only (false)"},
-                        "is_research": {"type": "boolean", "description": "Filter for research positions only (true) or non-research only (false)"},
+                        "is_remote": {
+                            "type": "boolean",
+                            "description": "Filter for remote jobs only (true) or non-remote only (false)",
+                        },
+                        "is_research": {
+                            "type": "boolean",
+                            "description": "Filter for research positions only (true) or non-research only (false)",
+                        },
                         "job_level_std": {
                             "type": "string",
                             "description": "Standardised seniority level (e.g. Junior, Mid, Senior, Lead, Manager, Director)",
@@ -536,7 +574,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                             "type": "string",
                             "description": "ISO date YYYY-MM-DD – return jobs posted on or before this date (inclusive)",
                         },
-                        "limit": {"type": "integer", "description": "Max results to return (default 20, max 100)"},
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results to return (default 20, max 100)",
+                        },
                     },
                 },
             },
@@ -574,9 +615,18 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                             ],
                             "description": "Dimension to group results by. Use posted_month for time-series / trend analysis.",
                         },
-                        "country": {"type": "string", "description": "Optional country filter (e.g. Germany, Sweden)"},
-                        "is_remote": {"type": "boolean", "description": "Optional remote filter"},
-                        "is_research": {"type": "boolean", "description": "Optional research filter"},
+                        "country": {
+                            "type": "string",
+                            "description": "Optional country filter (e.g. Germany, Sweden)",
+                        },
+                        "is_remote": {
+                            "type": "boolean",
+                            "description": "Optional remote filter",
+                        },
+                        "is_research": {
+                            "type": "boolean",
+                            "description": "Optional research filter",
+                        },
                         "job_type_filled": {
                             "type": "string",
                             "description": "Optional employment type filter (e.g. Full-time, Part-time, Contract, Internship)",

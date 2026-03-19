@@ -55,6 +55,7 @@ HARD_MAX_LIMIT = 100
 
 # ── search_jobs ─────────────────────────────────────────────────────────────
 
+
 def _check_iso_date(v: Optional[str], field_name: str) -> Optional[str]:
     """Validate a single ISO date string."""
     if v is not None and not _DATE_RE.match(v):
@@ -99,6 +100,7 @@ class SearchJobsInput(BaseModel):
 
 
 # ── job_stats ───────────────────────────────────────────────────────────────
+
 
 class JobStatsInput(BaseModel):
     """Validated input for the job_stats tool."""

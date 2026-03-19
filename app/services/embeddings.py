@@ -103,12 +103,14 @@ def embed_text(text: str) -> list[float]:
         try:
             span = _mlflow.get_current_active_span()
             if span:
-                span.set_attributes({
-                    "embedding.model_id": settings.bedrock_embed_model_id,
-                    "embedding.input_chars": len(text),
-                    "embedding.dimensions": len(embedding),
-                    "embedding.latency_ms": round(elapsed * 1000, 1),
-                })
+                span.set_attributes(
+                    {
+                        "embedding.model_id": settings.bedrock_embed_model_id,
+                        "embedding.input_chars": len(text),
+                        "embedding.dimensions": len(embedding),
+                        "embedding.latency_ms": round(elapsed * 1000, 1),
+                    }
+                )
         except Exception as e:
             logger.debug("MLflow embedding span enrichment failed (non-fatal): %s", e)
 

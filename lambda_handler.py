@@ -19,20 +19,23 @@ handler = Mangum(app, lifespan="off")
 def lambda_handler(event, context):
     """
     AWS Lambda entry point.
-    
+
     Parameters
     ----------
     event : dict
         API Gateway event object containing the HTTP request details
     context : LambdaContext
         AWS Lambda context object with runtime information
-    
+
     Returns
     -------
     dict
         API Gateway-compatible response with statusCode, headers, and body
     """
-    logger.info("Received event: %s", event.get("requestContext", {}).get("requestId", "unknown"))
+    logger.info(
+        "Received event: %s",
+        event.get("requestContext", {}).get("requestId", "unknown"),
+    )
 
     # Mangum handles the conversion between API Gateway and ASGI
     response = handler(event, context)
@@ -42,16 +45,20 @@ def lambda_handler(event, context):
     # when the container is frozen/terminated.
     try:
         import mlflow
+
         mlflow.flush_async_logging()
     except ImportError:
         # Full mlflow not installed — flush the lightweight REST client instead
         try:
             from app.services.mlflow_lite import get_lite_client
             from app.config import get_settings
+
             lite = get_lite_client()
             if lite:
                 lite.flush(timeout=3)
-                auto_flush = max(0, int(get_settings().mlflow_spool_autoflush_max_items))
+                auto_flush = max(
+                    0, int(get_settings().mlflow_spool_autoflush_max_items)
+                )
                 if auto_flush > 0:
                     lite.flush_spool(max_items=auto_flush)
         except Exception:

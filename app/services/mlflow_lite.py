@@ -45,7 +45,9 @@ _MAX_TRACE_TAG_KEY = 250
 _MAX_TRACE_TAG_VALUE = 4096
 
 
-def init_lite_client(tracking_uri: str, experiment_name: str) -> Optional["MLflowLiteClient"]:
+def init_lite_client(
+    tracking_uri: str, experiment_name: str
+) -> Optional["MLflowLiteClient"]:
     """Create and register the singleton client.  Returns ``None`` on failure."""
     global _client
     try:
@@ -93,7 +95,9 @@ class MLflowLiteClient:
     def _init_spool(self) -> None:
         """Initialize optional S3 spool for durable logging when server is unavailable."""
         try:
-            bucket = (self._settings.mlflow_spool_bucket or self._settings.s3_cv_bucket).strip()
+            bucket = (
+                self._settings.mlflow_spool_bucket or self._settings.s3_cv_bucket
+            ).strip()
             prefix = self._settings.mlflow_spool_prefix.strip().strip("/")
             if not self._settings.mlflow_spool_enabled or not bucket:
                 return
@@ -195,8 +199,7 @@ class MLflowLiteClient:
         encoded = MLflowLiteClient._safe_json(timeline, 30000)
         chunk_size = 3900
         chunks = [
-            encoded[i : i + chunk_size]
-            for i in range(0, len(encoded), chunk_size)
+            encoded[i : i + chunk_size] for i in range(0, len(encoded), chunk_size)
         ]
         tags["lite.timeline.chunks"] = str(len(chunks))
         for i, chunk in enumerate(chunks[:8]):  # Keep bounded and queryable
@@ -220,8 +223,16 @@ class MLflowLiteClient:
         turn = self._safe_key_part(turn_id)
         return f"{self._spool_prefix}-index/{conv}/{turn}.json"
 
-    def _trace_index_put(self, conversation_id: str, turn_id: str, trace_id: str) -> None:
-        if not (self._spool_enabled and self._s3 and conversation_id and turn_id and trace_id):
+    def _trace_index_put(
+        self, conversation_id: str, turn_id: str, trace_id: str
+    ) -> None:
+        if not (
+            self._spool_enabled
+            and self._s3
+            and conversation_id
+            and turn_id
+            and trace_id
+        ):
             return
         key = self._trace_index_key(conversation_id, turn_id)
         payload = {
@@ -741,7 +752,9 @@ class MLflowLiteClient:
                         spool_on_failure=False,
                     )
             except Exception as exc:
-                logger.warning("MLflow Lite spool replay failed key=%s err=%s", key, exc)
+                logger.warning(
+                    "MLflow Lite spool replay failed key=%s err=%s", key, exc
+                )
                 ok = False
 
             if ok:
@@ -790,21 +803,29 @@ class MLflowLiteClient:
             latency = float(d.get("total_latency_ms", 0))
 
             # ── create run ──────────────────────────────────────────
-            result = self._api("POST", "/api/2.0/mlflow/runs/create", json={
-                "experiment_id": self.experiment_id,
-                "start_time": int(now_ms - latency),
-                "run_name": f"turn-{turn_id[:8]}",
-                "tags": [
-                    {"key": "mlflow.runName", "value": f"turn-{turn_id[:8]}"},
-                    {"key": "conversation_id", "value": conv_id},
-                    {"key": "turn_id", "value": turn_id},
-                    {"key": "source", "value": "lambda"},
-                    {"key": "gate_outcome",
-                     "value": str(d.get("gate_outcome", ""))},
-                    {"key": "prompt_preview",
-                     "value": str(d.get("user_prompt", ""))[:120]},
-                ],
-            })
+            result = self._api(
+                "POST",
+                "/api/2.0/mlflow/runs/create",
+                json={
+                    "experiment_id": self.experiment_id,
+                    "start_time": int(now_ms - latency),
+                    "run_name": f"turn-{turn_id[:8]}",
+                    "tags": [
+                        {"key": "mlflow.runName", "value": f"turn-{turn_id[:8]}"},
+                        {"key": "conversation_id", "value": conv_id},
+                        {"key": "turn_id", "value": turn_id},
+                        {"key": "source", "value": "lambda"},
+                        {
+                            "key": "gate_outcome",
+                            "value": str(d.get("gate_outcome", "")),
+                        },
+                        {
+                            "key": "prompt_preview",
+                            "value": str(d.get("user_prompt", ""))[:120],
+                        },
+                    ],
+                },
+            )
             if not result or "run" not in result:
                 logger.warning("MLflow Lite: create-run failed")
                 if spool_on_failure:
@@ -816,20 +837,29 @@ class MLflowLiteClient:
             # ── metrics ─────────────────────────────────────────────
             metrics: list[dict] = []
             for key in (
-                "total_latency_ms", "llm_latency_ms", "tool_latency_ms",
-                "input_tokens", "output_tokens", "total_tokens",
-                "gate_confidence", "tool_rounds", "soft_enforcement_retries",
-                "prompt_char_count", "result_length",
+                "total_latency_ms",
+                "llm_latency_ms",
+                "tool_latency_ms",
+                "input_tokens",
+                "output_tokens",
+                "total_tokens",
+                "gate_confidence",
+                "tool_rounds",
+                "soft_enforcement_retries",
+                "prompt_char_count",
+                "result_length",
             ):
                 val = d.get(key)
                 if val is not None:
                     try:
-                        metrics.append({
-                            "key": key,
-                            "value": float(val),
-                            "timestamp": now_ms,
-                            "step": 0,
-                        })
+                        metrics.append(
+                            {
+                                "key": key,
+                                "value": float(val),
+                                "timestamp": now_ms,
+                                "step": 0,
+                            }
+                        )
                     except (TypeError, ValueError):
                         pass
 
@@ -848,10 +878,13 @@ class MLflowLiteClient:
                     params.append({"key": src, "value": str(val)[:mx]})
 
             tools = d.get("tools_called", [])
-            tool_names = ",".join(
-                (t.get("name", "?") if isinstance(t, dict) else str(t))
-                for t in tools
-            ) or "none"
+            tool_names = (
+                ",".join(
+                    (t.get("name", "?") if isinstance(t, dict) else str(t))
+                    for t in tools
+                )
+                or "none"
+            )
             params.append({"key": "tools_called", "value": tool_names})
 
             error = d.get("error")
@@ -860,24 +893,34 @@ class MLflowLiteClient:
 
             # ── log batch ───────────────────────────────────────────
             if metrics or params:
-                batch_result = self._api("POST", "/api/2.0/mlflow/runs/log-batch", json={
-                    "run_id": run_id,
-                    "metrics": metrics,
-                    "params": params,
-                })
+                batch_result = self._api(
+                    "POST",
+                    "/api/2.0/mlflow/runs/log-batch",
+                    json={
+                        "run_id": run_id,
+                        "metrics": metrics,
+                        "params": params,
+                    },
+                )
                 if batch_result is None:
-                    logger.warning("MLflow Lite: log-batch failed for run %s", run_id[:8])
+                    logger.warning(
+                        "MLflow Lite: log-batch failed for run %s", run_id[:8]
+                    )
                     if spool_on_failure:
                         self._spool_put("turn", d)
                     return False
 
             # ── end run ─────────────────────────────────────────────
             status = "FAILED" if error else "FINISHED"
-            update_result = self._api("POST", "/api/2.0/mlflow/runs/update", json={
-                "run_id": run_id,
-                "status": status,
-                "end_time": now_ms,
-            })
+            update_result = self._api(
+                "POST",
+                "/api/2.0/mlflow/runs/update",
+                json={
+                    "run_id": run_id,
+                    "status": status,
+                    "end_time": now_ms,
+                },
+            )
             if update_result is None:
                 logger.warning("MLflow Lite: run update failed for run %s", run_id[:8])
                 if spool_on_failure:
@@ -886,7 +929,8 @@ class MLflowLiteClient:
 
             logger.info(
                 "MLflow Lite: logged run %s for turn %s",
-                run_id[:8], turn_id[:8],
+                run_id[:8],
+                turn_id[:8],
             )
             return True
         except Exception as exc:
@@ -999,14 +1043,22 @@ class MLflowLiteClient:
         """Attach user feedback as tags on an existing run."""
         if not self.available:
             return
-        self._api("POST", "/api/2.0/mlflow/runs/set-tag", json={
-            "run_id": run_id,
-            "key": "feedback.thumbs_up",
-            "value": str(thumbs_up).lower(),
-        })
-        if comment:
-            self._api("POST", "/api/2.0/mlflow/runs/set-tag", json={
+        self._api(
+            "POST",
+            "/api/2.0/mlflow/runs/set-tag",
+            json={
                 "run_id": run_id,
-                "key": "feedback.comment",
-                "value": comment[:500],
-            })
+                "key": "feedback.thumbs_up",
+                "value": str(thumbs_up).lower(),
+            },
+        )
+        if comment:
+            self._api(
+                "POST",
+                "/api/2.0/mlflow/runs/set-tag",
+                json={
+                    "run_id": run_id,
+                    "key": "feedback.comment",
+                    "value": comment[:500],
+                },
+            )

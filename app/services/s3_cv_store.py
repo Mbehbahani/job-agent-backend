@@ -105,8 +105,15 @@ def update_matches(cv_id: str, matches_json: list[dict[str, Any]]) -> None:
         payload = json.loads(response["Body"].read())
     except ClientError as exc:
         if exc.response["Error"]["Code"] == "NoSuchKey":
-            logger.warning("S3: CV not found for update  cv_id=%s – creating stub", cv_id)
-            payload = {"cv_id": cv_id, "raw_text": "", "embedding": [], "top_matches": None}
+            logger.warning(
+                "S3: CV not found for update  cv_id=%s – creating stub", cv_id
+            )
+            payload = {
+                "cv_id": cv_id,
+                "raw_text": "",
+                "embedding": [],
+                "top_matches": None,
+            }
         else:
             raise
 
