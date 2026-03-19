@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   maintain:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
     steps:
@@ -27,7 +28,9 @@ jobs:
           pip install ruff
 
       - name: Run formatter (auto-fix)
-        run: ruff check . --fix
+        run: |
+          ruff check . --fix
+          ruff format .
 
       - name: Commit changes if needed
         run: |
